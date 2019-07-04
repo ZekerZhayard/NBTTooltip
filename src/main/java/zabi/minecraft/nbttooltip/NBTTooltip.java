@@ -7,18 +7,12 @@ import java.util.List;
 import javax.annotation.Nonnull;
 
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.config.Config.Type;
-import net.minecraftforge.common.config.ConfigManager;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
-import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventHandler;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -28,34 +22,35 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import zabi.minecraft.nbttooltip.ModConfig.EnumFetchType;
+import zabi.minecraft.nbttooltip.config.ModConfig;
 
-@Mod(name=NBTTooltip.MOD_NAME, modid=NBTTooltip.MOD_ID, version="0.6", clientSideOnly=true, acceptedMinecraftVersions="[1.11,1.13)", updateJSON="http://zabi.altervista.org/minecraft/nbttooltip/update.json")
+@Mod(name=NBTTooltip.MOD_NAME, modid=NBTTooltip.MOD_ID, version="0.6", clientSideOnly=true, acceptedMinecraftVersions="[1.8,1.8.9]", guiFactory="zabi.minecraft.nbttooltip.config.ModGuiFactory")
 public class NBTTooltip {
 	
 	public static final String MOD_NAME = "NBT Tooltip";
 	public static final String MOD_ID = "nbttooltip";
 	
-	private static final String FORMAT = TextFormatting.ITALIC.toString()+TextFormatting.DARK_GRAY;
+	private static final String FORMAT = EnumChatFormatting.ITALIC.toString()+EnumChatFormatting.DARK_GRAY;
 	private static int line_scrolled = 0, time = 0;
 	
 	@SideOnly(Side.CLIENT)
 	@EventHandler
 	public void preInit(FMLPreInitializationEvent evt) {
 		MinecraftForge.EVENT_BUS.register(this);
+		ModConfig.init(evt.getSuggestedConfigurationFile());
 	}
 	
 	@SideOnly(Side.CLIENT)
 	@SubscribeEvent(priority=EventPriority.LOWEST)
 	public void onTooltip(ItemTooltipEvent evt) {
-		if (!ModConfig.requiresf3 || evt.getFlags().isAdvanced()) {
-			NBTTagCompound tag = evt.getItemStack().getTagCompound();
+		if (!ModConfig.requiresf3 || evt.showAdvancedItemTooltips) {
+			NBTTagCompound tag = evt.itemStack.getTagCompound();
 			ArrayList<String> ttip = new ArrayList<String>(ModConfig.maxLinesShown);
 			if (tag!=null) {
-				evt.getToolTip().add("");
+				evt.toolTip.add("");
 
 				if (ModConfig.showDelimiters) {
-					ttip.add(TextFormatting.DARK_PURPLE+" - nbt start -");
+					ttip.add(EnumChatFormatting.DARK_PURPLE+" - nbt start -");
 				}
 				if (ModConfig.compress) {
 					ttip.add(FORMAT+tag.toString());
@@ -63,35 +58,35 @@ public class NBTTooltip {
 					unwrapTag(ttip, tag, FORMAT, "", ModConfig.compress?"":"  ");
 				}
 				if (ModConfig.showDelimiters) {
-					ttip.add(TextFormatting.DARK_PURPLE+" - nbt end -");
+					ttip.add(EnumChatFormatting.DARK_PURPLE+" - nbt end -");
 				}
 				ttip = transformTtip(ttip);
 
-				evt.getToolTip().addAll(ttip);
+				evt.toolTip.addAll(ttip);
 			} else {
-				evt.getToolTip().add(FORMAT+"No NBT tag");
+				evt.toolTip.add(FORMAT+"No NBT tag");
 			}
 		}
 	}
 
-	@SideOnly(Side.CLIENT)
-	@SubscribeEvent
-	public void onRightClick(RightClickBlock evt) {
-		if (ModConfig.fetchType==EnumFetchType.DISABLED) return;
-		if ((evt.getWorld().isRemote && ModConfig.fetchType != EnumFetchType.SERVER) || (!evt.getWorld().isRemote && ModConfig.fetchType!=EnumFetchType.CLIENT)) {
-			ItemStack stack = evt.getEntityPlayer().getHeldItem(evt.getHand());
-			if (evt.getWorld().getTileEntity(evt.getPos())!=null && stack.getItem()==Items.ARROW) {
-				ArrayList<String> tag = new ArrayList<String>();
-				NBTTooltip.unwrapTag(tag, evt.getWorld().getTileEntity(evt.getPos()).writeToNBT(new NBTTagCompound()), "", "", "\t");
-				final StringBuilder sb = new StringBuilder();
-				tag.forEach(s -> {
-					sb.append(s);
-					sb.append('\n');
-				});
-				new InfoWindow(sb.toString(), evt.getWorld().isRemote);
-			}
-		}
-	}
+//	@SideOnly(Side.CLIENT)
+//	@SubscribeEvent
+//	public void onRightClick(RightClickBlock evt) {
+//		if (ModConfig.fetchType==EnumFetchType.DISABLED) return;
+//		if ((evt.getWorld().isRemote && ModConfig.fetchType != EnumFetchType.SERVER) || (!evt.getWorld().isRemote && ModConfig.fetchType!=EnumFetchType.CLIENT)) {
+//			ItemStack stack = evt.getEntityPlayer().getHeldItem(evt.getHand());
+//			if (evt.getWorld().getTileEntity(evt.getPos())!=null && stack.getItem()==Items.arrow) {
+//				ArrayList<String> tag = new ArrayList<String>();
+//				NBTTooltip.unwrapTag(tag, evt.getWorld().getTileEntity(evt.getPos()).writeToNBT(new NBTTagCompound()), "", "", "\t");
+//				final StringBuilder sb = new StringBuilder();
+//				tag.forEach(s -> {
+//					sb.append(s);
+//					sb.append('\n');
+//				});
+//				new InfoWindow(sb.toString(), evt.getWorld().isRemote);
+//			}
+//		}
+//	}
 	
 	@SideOnly(Side.CLIENT)
 	@SubscribeEvent
@@ -110,6 +105,17 @@ public class NBTTooltip {
 		ArrayList<String> newttip = new ArrayList<String>(ModConfig.maxLinesShown);
 		if (ModConfig.showSeparator) {
 			newttip.add("- NBTTooltip -");
+		}
+		for (int i = ttip.size() - 1; i >= 0; i--) {
+		    String tip = ttip.get(i);
+		    if (tip.length() > ModConfig.maxCharactorsShown) {
+		        int k = 1;
+		        for (int j = ModConfig.maxCharactorsShown; j < tip.length(); j += ModConfig.maxCharactorsShown) {
+		            ttip.add(i + k, tip.substring(j - ModConfig.maxCharactorsShown, j));
+		            k++;
+		        }
+		        ttip.remove(i);
+		    }
 		}
 		if (ttip.size()>ModConfig.maxLinesShown) {
 			if (ModConfig.maxLinesShown+line_scrolled>ttip.size()) line_scrolled = 0;
@@ -141,7 +147,7 @@ public class NBTTooltip {
 		} else if (base.getId()==9) {
 			NBTTagList tag = (NBTTagList) base;
 			int index = 0;
-			Iterator<NBTBase> iter = tag.iterator();
+			Iterator<NBTBase> iter = tag.tagList.iterator();
 			while (iter.hasNext()) {
 				NBTBase nbtnext = iter.next();
 				if (nbtnext.getId()==10 || nbtnext.getId()==9) {
@@ -158,13 +164,13 @@ public class NBTTooltip {
 		}
 	}
 
-	@SideOnly(Side.CLIENT)
-	@SubscribeEvent
-	public void onConfigChanged(ConfigChangedEvent evt) {
-		if (evt.getModID().equals(MOD_ID)) {
-			ConfigManager.sync(MOD_ID, Type.INSTANCE);
-		}
-	}
+//	@SideOnly(Side.CLIENT)
+//	@SubscribeEvent
+//	public void onConfigChanged(ConfigChangedEvent evt) {
+//		if (evt.modID.equals(MOD_ID)) {
+//			ConfigManager.sync(MOD_ID, Type.INSTANCE);
+//		}
+//	}
 	
 	private static void addValueToTooltip(List<String> tooltip, NBTBase nbt, String name, String pad) {
 		tooltip.add(pad+name+": "+nbt.toString());
